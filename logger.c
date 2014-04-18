@@ -13,7 +13,7 @@
 #define PORT "55555"
 #define MAXBUFLEN 512
 
-void prepare_query(char *cursor, char *query, int len);
+int prepare_query(char *cursor, char *query, int len);
 
 int main(int argc, const char *argv[])
 {
@@ -62,12 +62,8 @@ int main(int argc, const char *argv[])
 		recvfrom(sockfd, buf, MAXBUFLEN-1, 0, (struct sockaddr *)&recv_addr,
 				&recv_addr_len);
 
-		memcpy(&protocol, cursor, sizeof(int));
-		cursor += sizeof(protocol);
-
-		if (protocol == 5)
+		if (prepare_query(cursor, query, sizeof(query)))
 		{
-			prepare_query(cursor, query, sizeof(query));
 			sqlite3_prepare_v2(db, query, sizeof(query), &ppStmt, NULL);
 			sqlite3_step(ppStmt);
 			sqlite3_finalize(ppStmt);
@@ -80,30 +76,51 @@ int main(int argc, const char *argv[])
 	exit(0);
 }
 
-void prepare_query(char *cursor, char *query, int len)
+int prepare_query(char *cursor, char *query, int len)
 {
 	char configname[32], mapname[32];
-	int alivesurvs, maxdist, survcompletion[4], survhealth[4], itemCount[3], bossflow[2], roundtime;
+	int protocol;
+	int alivesurvs, maxdist, survcompletion[4], survhealth[4], itemCount[3], bossflow[2], roundtime, damagetaken;
 
-	strncpy(mapname, cursor, sizeof(mapname));
-	cursor += sizeof(char) + strlen(cursor);
-	strncpy(configname, cursor, sizeof(mapname));
-	cursor += sizeof(char) + strlen(cursor);
-	memcpy(&alivesurvs, cursor, sizeof(alivesurvs));
-	cursor += sizeof(alivesurvs);
-	memcpy(&maxdist, cursor, sizeof(maxdist));
-	cursor += sizeof(maxdist);
-	memcpy(survcompletion, cursor, sizeof(survcompletion));
-	cursor += sizeof(survcompletion);
-	memcpy(survhealth, cursor, sizeof(survhealth));
-	cursor += sizeof(survhealth);
-	memcpy(itemCount, cursor, sizeof(itemCount));
-	cursor += sizeof(itemCount);
-	memcpy(bossflow, cursor, sizeof(bossflow));
-	cursor += sizeof(bossflow);
-	memcpy(&roundtime, cursor, sizeof(roundtime));
-	cursor += sizeof(roundtime);
+	memcpy(&protocol, cursor, sizeof(int));
+	cursor += sizeof(protocol);
 
-	snprintf(query, len, "INSERT INTO log VALUES(\"%s\", \"%s\", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d);", mapname, configname, alivesurvs, maxdist, survcompletion[0], survcompletion[1], survcompletion[2], survcompletion[3], survhealth[0], survhealth[1], survhealth[2], survhealth[3], itemCount[0], itemCount[1], itemCount[2], bossflow[0], bossflow[1], roundtime);
-	printf("%s\n\n", query);
+	if (protocol >= 5)
+	{
+		strncpy(mapname, cursor, sizeof(mapname));
+		cursor += sizeof(char) + strlen(cursor);
+		strncpy(configname, cursor, sizeof(mapname));
+		cursor += sizeof(char) + strlen(cursor);
+		memcpy(&alivesurvs, cursor, sizeof(alivesurvs));
+		cursor += sizeof(alivesurvs);
+		memcpy(&maxdist, cursor, sizeof(maxdist));
+		cursor += sizeof(maxdist);
+		memcpy(survcompletion, cursor, sizeof(survcompletion));
+		cursor += sizeof(survcompletion);
+		memcpy(survhealth, cursor, sizeof(survhealth));
+		cursor += sizeof(survhealth);
+		memcpy(itemCount, cursor, sizeof(itemCount));
+		cursor += sizeof(itemCount);
+		memcpy(bossflow, cursor, sizeof(bossflow));
+		cursor += sizeof(bossflow);
+		memcpy(&roundtime, cursor, sizeof(roundtime));
+		cursor += sizeof(roundtime);
+
+		if (protocol == 6)
+		{
+			memcpy(&damagetaken, cursor, sizeof(damagetaken));
+			cursor += sizeof(damagetaken);
+		}
+		else 
+		{
+			damagetaken = -1;
+		}
+
+		snprintf(query, len, "INSERT INTO log VALUES(\"%s\", \"%s\", %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d);", mapname, configname, alivesurvs, maxdist, survcompletion[0], survcompletion[1], survcompletion[2], survcompletion[3], survhealth[0], survhealth[1], survhealth[2], survhealth[3], itemCount[0], itemCount[1], itemCount[2], bossflow[0], bossflow[1], roundtime, damagetaken);
+		printf("%s\n\n", query);
+		
+		return 1;
+	}
+
+	return 0;
 }

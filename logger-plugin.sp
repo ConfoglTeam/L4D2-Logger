@@ -5,11 +5,14 @@
 #include <l4d2_direct>
 #include <socket>
 #include <left4downtown>
+#undef REQUIRE_PLUGIN
+#include "damage_tracking"
+#include "pause"
 
 #define ENDCHECKDELAY 2.0
 #define BUFFERSIZE 512
-#define VERSION_INT 5
-#define VERSION_STR "5"
+#define VERSION_INT 6
+#define VERSION_STR "6"
 
 public Plugin:myinfo =
 {
@@ -24,6 +27,9 @@ new String:mapName[64];
 new Handle:gSocket;
 new bossFlow[2] = { -2, ... };
 new Float:roundTime;
+new Float:pauseTime;
+new roundDamage;
+new bool:damageBonusAvailable;
 
 /* cvars */
 new Handle:hVsBossBuffer;
@@ -31,6 +37,12 @@ new Handle:hPainPillDecayRate;
 new Handle:hReadyEnabled;
 new Handle:hCfgName;
 new Handle:hCheats;
+
+public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+{
+	MarkNativeAsOptional("DamageTracking_GetRoundDamage");
+	return APLRes_Success;
+}
 
 public OnPluginStart()
 {
@@ -44,8 +56,12 @@ public OnPluginStart()
 	hCheats = FindConVar("sv_cheats");
 
 	gSocket = SocketCreate(SOCKET_UDP, OnSocketError);
-	SocketConnect(gSocket, OnSocketConnect, OnSocketRecv, OnSocketDisconnect, "bonerbox.canadarox.com", 55555);
+	SocketConnect(gSocket, OnSocketConnect, OnSocketRecv, OnSocketDisconnect, "logger.l4dpromod.com", 55555);
 }
+
+public OnAllPluginsLoaded()						damageBonusAvailable = LibraryExists("damage_tracking");
+public OnLibraryRemoved(const String:name[])	if (StrEqual(name, "damage_tracking"))	damageBonusAvailable = false;
+public OnLibraryAdded(const String:name[])		if (StrEqual(name, "damage_tracking"))	damageBonusAvailable = true;
 
 public OnMapStart()
 {
@@ -70,6 +86,16 @@ public OnSocketDisconnect(Handle:socket, any:arg) { }
 public Action:L4D_OnFirstSurvivorLeftSafeArea(client)
 {
 	roundTime = GetTickedTime();
+}
+
+public OnPause()
+{
+	pauseTime = GetTickedTime();
+}
+
+public OnUnpause()
+{
+	roundTime -= (GetTickedTime() - pauseTime);
 }
 
 public RoundStart_Event(Handle:event, const String:name[], bool:dontBroadcas)
@@ -117,6 +143,8 @@ PrepMessage(String:message[BUFFERSIZE])
 
 	roundTime = GetTickedTime() - roundTime;
 	
+	roundDamage = damageBonusAvailable ? DamageTracking_GetRoundDamage(GameRules_GetProp("m_bAreTeamsFlipped")) : -1;
+
 	new offset;
 	offset += WriteToStringBuffer(message[offset], VERSION_INT); // 1 integer
 	offset += 1 + strcopy(message[offset], sizeof(message) - offset, mapName); // string
@@ -128,6 +156,7 @@ PrepMessage(String:message[BUFFERSIZE])
 	offset += WriteArrayToStringBuffer(message[offset], itemCount, sizeof(itemCount)); // 3 integers
 	offset += WriteArrayToStringBuffer(message[offset], bossFlow, sizeof(bossFlow)); // 2 integers
 	offset += WriteToStringBuffer(message[offset], RoundToNearest(roundTime)); // 1 integer
+	offset += WriteToStringBuffer(message[offset], roundDamage); // 1 integer
 
 	return offset;
 }
