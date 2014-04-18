@@ -6,7 +6,7 @@ A tool that logs some basic info for stat tracking of competitive L4D2 games
 
 Tracking different stats about maps and configs used for competitive L4D2 games. The goal is to see which maps are the most played as well as which maps are easier or harder to survive.  
 
-Nearly all of the data collected is available at logger.l4dpromod.com, processed and presented in more legible form.
+Nearly all of the data collected is available at <a href="http://logger.l4dpromod.com">logger.l4dpromod.com</a>, processed and presented in more legible form.
 
 ##Current Features
 
@@ -21,6 +21,6 @@ Currently the plugin tracks the following stats:
 * Total number of health items (medkits, pills, adrenaline)
 * Witch and tank spawn flows
 * Round durations
-* Damage taken as tracked by the damage scoring suite
+* Damage taken as tracked by the damage scoring suite (requires <a href="https://github.com/CanadaRox/sourcemod-plugins/tree/master/damage_scoring_l4d2">damage scoring</a>)
 
 The plugin also makes sure that `l4d_ready_enabled` is true and `sv_cheats` is disabled since that should filter out any non-competitive results if the plugin happens to be running.
